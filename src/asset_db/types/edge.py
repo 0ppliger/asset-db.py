@@ -1,17 +1,17 @@
+from typing import Optional
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import uuid4
 from oam import Relation
 from .entity import Entity
 
 @dataclass
 class Edge:
-    id:          uuid4
-    created_at:  datetime
-    updated_at:  datetime
     relation:    Relation
     from_entity: Entity
     to_entity:   Entity
+    id:          Optional[str]      = None
+    created_at:  Optional[datetime] = None
+    updated_at:  Optional[datetime] = None
 
     @property
     def etype(self) -> str:
@@ -32,19 +32,9 @@ class Edge:
             return flat
 
         return {
+            "edge_id":    self.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "etype":      self.etype,
             **_flatten(self.relation.to_dict())
         }
-
-    @staticmethod
-    def create(relation: Relation, from_entity: Entity, to_entity: Entity) -> 'Edge':
-        return Edge(
-	    id=uuid4(),
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            relation=relation,
-            from_entity=from_entity,
-            to_entity=to_entity
-        )

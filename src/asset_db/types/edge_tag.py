@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import uuid4
 from oam import Property
+from typing import Optional
 from .edge import Edge
 
 @dataclass
 class EdgeTag:
-    id:         uuid4
-    created_at: datetime
-    updated_at: datetime
     edge:       Edge
     property:   Property
+    id:         Optional[str]      = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     @property
     def ttype(self) -> str:
@@ -27,21 +27,10 @@ class EdgeTag:
             return flat
 
         return {
-            "tag_id":  str(self.id),
-            "edge_id":  str(self.edge.id),
+            "tag_id":     self.id,
+            "edge_id":    self.edge.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "ttype":      self.ttype,
             **_flatten(self.property.to_dict())
         }
-
-    @staticmethod
-    def create(edge: Edge, property: Property) -> 'EdgeTag':
-        return EdgeTag(
-	    id=uuid4(),
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            edge=edge,
-            property=property
-        )
-

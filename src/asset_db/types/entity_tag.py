@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 from datetime import datetime
-from uuid import uuid4
+from typing import Optional
 from oam import Property
 from .entity import Entity
 
 @dataclass
 class EntityTag:
-    id:         uuid4
-    created_at: datetime
-    updated_at: datetime
     entity:     Entity
     property:   Property
+    id:         Optional[str]      = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     @property
     def ttype(self) -> str:
@@ -27,21 +27,10 @@ class EntityTag:
             return flat
 
         return {
-            "tag_id":  str(self.id),
-            "entity_id":  str(self.entity.id),
+            "tag_id":     self.id,
+            "entity_id":  self.entity.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "ttype":      self.ttype,
             **_flatten(self.property.to_dict())
         }
-
-    @staticmethod
-    def create(entity: Entity, property: Property) -> 'EntityTag':
-        return EntityTag(
-	    id=uuid4(),
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-            entity=entity,
-            property=property
-        )
-
