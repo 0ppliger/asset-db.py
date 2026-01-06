@@ -6,19 +6,23 @@ from .entity import Entity
 
 @dataclass
 class Edge:
-    relation:    Relation
-    from_entity: Entity
-    to_entity:   Entity
     id:          Optional[str]      = None
+    relation:    Optional[Relation] = None
+    from_entity: Optional[Entity]   = None
+    to_entity:   Optional[Entity]   = None
     created_at:  Optional[datetime] = None
     updated_at:  Optional[datetime] = None
 
     @property
-    def etype(self) -> str:
+    def etype(self) -> Optional[str]:
+        if not self.relation:
+            return None
         return self.relation.relation_type.value
 
     @property
     def label(self) -> str:
+        if not self.relation:
+            return ""
         return self.relation.label.upper()
     
     def to_dict(self) -> dict:

@@ -26,7 +26,7 @@ class Repository(ABC):
         pass
     
     @abstractmethod
-    def find_entity_by_id(self, id: str) -> Optional[Entity]:
+    def find_entity_by_id(self, id: str) -> Entity:
         pass
     
     @abstractmethod
@@ -46,7 +46,7 @@ class Repository(ABC):
         pass
     
     @abstractmethod
-    def find_edge_by_id(self, id: str) -> Optional[Edge]:
+    def find_edge_by_id(self, id: str) -> Edge:
         pass
     
     @abstractmethod
@@ -70,7 +70,7 @@ class Repository(ABC):
         pass
     
     @abstractmethod
-    def find_entity_tag_by_id(self, id: str) -> Optional[EntityTag]:
+    def find_entity_tag_by_id(self, id: str) -> EntityTag:
         pass
     
     @abstractmethod
@@ -94,7 +94,7 @@ class Repository(ABC):
         pass
     
     @abstractmethod
-    def find_edge_tag_by_id(self, id: str) -> Optional[EdgeTag]:
+    def find_edge_tag_by_id(self, id: str) -> EdgeTag:
         pass
     
     @abstractmethod

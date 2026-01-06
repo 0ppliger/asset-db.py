@@ -6,15 +6,17 @@ from .entity import Entity
 
 @dataclass
 class EntityTag:
-    entity:     Entity
-    property:   Property
     id:         Optional[str]      = None
+    entity:     Optional[Entity]   = None
+    prop:       Optional[Property] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     @property
-    def ttype(self) -> str:
-        return self.property.property_type.value
+    def ttype(self) -> Optional[str]:
+        if not self.prop:
+            return None
+        return self.prop.property_type.value
     
     def to_dict(self) -> dict:
         def _flatten(d) -> dict:
@@ -32,5 +34,5 @@ class EntityTag:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "ttype":      self.ttype,
-            **_flatten(self.property.to_dict())
+            **_flatten(self.prop.to_dict())
         }
