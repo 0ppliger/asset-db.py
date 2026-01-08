@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "asset-db"
-version = "0.0.2"
+version = "0.0.3"
 authors = [
   { name="J. Oppliger", email="julien@oppliger.cc" },
 ]
