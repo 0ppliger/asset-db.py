@@ -2,6 +2,7 @@ from datetime import datetime
 from asset_db.types.edge import Edge
 from asset_db.types.entity import Entity
 from typing import Optional
+from typing import cast
 from oam import make_oam_object_from_dict
 from oam import valid_relationship
 from oam import get_relation_by_type
@@ -51,21 +52,25 @@ def relationship_to_edge(rel: Relationship) -> Edge:
     
 def _create_edge(self, edge: Edge) -> Edge:
 
-    if edge.relation == None \
-       or edge.from_entity == None \
-       or edge.to_entity == None:
+    if edge.relation is None \
+       or edge.from_entity is None \
+       or edge.to_entity is None:
         raise Exception("failed input validation check")
 
+    if edge.from_entity.asset is None \
+       or edge.to_entity.asset is None:
+        raise Exception("malformed edge")
+    
     if not valid_relationship(
             edge.from_entity.asset.asset_type,
             edge.relation.label,
             edge.relation.relation_type,
             edge.to_entity.asset.asset_type
     ):
-        raise Exception("{} -{}-> {} is not valid in the taxonomy").format(
-            edge.from_entity.asset_type,
+        raise Exception("{} -{}-> {} is not valid in the taxonomy".format(
+            edge.from_entity.asset.asset_type,
             edge.relation.label,
-            edge.from_entity.asset_type)
+            edge.to_entity.asset.asset_type))
 
     if not edge.updated_at:
         edge.updated_at = datetime.now()
@@ -118,6 +123,9 @@ def _edge_seen(self, edge: Edge, updated: datetime) -> None:
 def _get_duplicate_edge(self, edge: Edge, updated: datetime) -> Optional[Edge]:
     dup = None
 
+    if edge.to_entity is None:
+        raise Exception("malformed edge")
+    
     try:
         outs = self.outgoing_edges(edge.from_entity)
         for out in outs:

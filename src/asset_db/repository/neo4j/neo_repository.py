@@ -161,13 +161,13 @@ class NeoRepository(Repository):
     def find_entity_tag_by_id(
             self,
             id: str
-    ) -> EdgeTag:
+    ) -> EntityTag:
         return _find_entity_tag_by_id(self, id)
 
     def find_entity_tags(
             self,
             entity: Entity,
-            since: datetime = None,
+            since: Optional[datetime] = None,
             *args: str
     ) -> List[EntityTag]:
         return _find_entity_tags(self, entity, since, *args)
@@ -221,7 +221,7 @@ class NeoRepository(Repository):
     def find_edge_tags(
             self,
             edge: Edge,
-            since: datetime = None,
+            since: Optional[datetime] = None,
             *args: str
     ) -> List[EdgeTag]:
         return _find_edge_tags(self, edge, since, *args)

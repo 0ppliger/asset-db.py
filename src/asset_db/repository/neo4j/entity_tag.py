@@ -6,6 +6,7 @@ from oam import get_property_by_type
 from oam import describe_oam_object
 from oam import make_oam_object_from_dict
 from typing import Optional
+from typing import cast
 from datetime import datetime
 from uuid import uuid4
 from neo4j import Result
@@ -53,11 +54,15 @@ def node_to_entity_tag(node: Node) -> EntityTag:
         
         d[prop_key] = prop_value
 
-    et.prop = make_oam_object_from_dict(property_cls, d)
+    et.prop = cast(Property, make_oam_object_from_dict(property_cls, d))
         
     return et
 
 def _create_entity_tag(self, entity: Entity, tag: EntityTag) -> EntityTag:
+
+    if tag.prop is None:
+        raise Exception("malformed entity tag")
+    
     existing_tag = None
     if tag.id is not None and tag.id != "":
         existing_tag = EntityTag(
@@ -83,6 +88,9 @@ def _create_entity_tag(self, entity: Entity, tag: EntityTag) -> EntityTag:
             pass
 
     if existing_tag is not None:
+        if existing_tag.prop is None:
+            raise Exception("malformed entity tag")
+        
         if tag.prop.property_type != existing_tag.prop.property_type:
             raise Exception("the property type does not match the existing tag")
 
@@ -184,7 +192,7 @@ def _find_entity_tag_by_id(self, id: str) -> EntityTag:
 
     return node_to_entity_tag(node)
 
-def _find_entity_tags(self, entity: Entity, since: datetime = None, *args: str) -> list[EntityTag]:
+def _find_entity_tags(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[EntityTag]:
     names = list(args)
     query = f"MATCH (p:EntityTag {{entity_id: '{entity.id}'}}) RETURN p"
     if since is not None:
@@ -209,6 +217,9 @@ def _find_entity_tags(self, entity: Entity, since: datetime = None, *args: str) 
         except Exception as e:
             raise e
 
+        if tag.prop is None:
+            raise Exception("malformed entity tag")
+        
         if len(names) > 0:
             n = tag.prop.name
             found = n in names

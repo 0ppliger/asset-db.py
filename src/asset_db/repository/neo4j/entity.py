@@ -5,6 +5,7 @@ from oam import get_asset_by_type
 from oam import describe_oam_object
 from oam import make_oam_object_from_dict
 from typing import Optional
+from typing import cast
 from datetime import datetime
 from neo4j import Result
 from neo4j.time import DateTime
@@ -49,7 +50,7 @@ def node_to_entity(node: Node) -> Entity:
         
         d[prop_key] = prop_value
 
-    entity.asset = make_oam_object_from_dict(asset_cls, d)
+    entity.asset = cast(Asset, make_oam_object_from_dict(asset_cls, d))
 
     return entity
 

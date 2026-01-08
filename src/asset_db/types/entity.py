@@ -17,20 +17,17 @@ class Entity:
         return self.asset.asset_type.value
     
     def to_dict(self) -> dict:
-        def _flatten(d) -> dict:
-            flat = {}
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    flat.update(_flatten(v))
-                else:
-                    flat[k] = v
-            return flat
+        if self.id is None or \
+           self.created_at is None or \
+           self.updated_at is None or \
+           self.asset is None:
+            raise Exception("malformed entity")
         
         return {
             "entity_id":  self.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "etype":      self.etype,
-            **_flatten(self.asset.to_dict())
+            **self.asset.to_dict()
         }
 

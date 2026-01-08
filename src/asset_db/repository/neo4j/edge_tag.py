@@ -6,6 +6,7 @@ from oam import get_property_by_type
 from oam import describe_oam_object
 from oam import make_oam_object_from_dict
 from typing import Optional
+from typing import cast
 from datetime import datetime
 from neo4j import Result
 from neo4j.graph import Node
@@ -32,7 +33,7 @@ def node_to_edge_tag(node: Node) -> EdgeTag:
     _updated_at = node.get("updated_at")
     if _updated_at is None:
         raise Exception("Unable to extract 'updated_at'")
-    edge_tag.last_seen = _updated_at.to_native()
+    edge_tag.updated_at = _updated_at.to_native()
 
     _ttype = node.get("ttype")
     if _ttype is None:
@@ -53,12 +54,16 @@ def node_to_edge_tag(node: Node) -> EdgeTag:
         
         d[prop_key] = prop_value
 
-    edge_tag.prop = make_oam_object_from_dict(property_cls, d)
+    edge_tag.prop = cast(Property, make_oam_object_from_dict(property_cls, d))
 
     return edge_tag
 
 
 def _create_edge_tag(self, edge: Edge, tag: EdgeTag) -> EdgeTag:
+
+    if tag.prop is None:
+        raise Exception("malformed entity tag")
+    
     existing_tag = None
     if tag.id is not None and tag.id != "":
         existing_tag = EdgeTag(
@@ -84,6 +89,10 @@ def _create_edge_tag(self, edge: Edge, tag: EdgeTag) -> EdgeTag:
             pass
 
     if existing_tag is not None:
+
+        if existing_tag.prop is None:
+            raise Exception("malformed entity tag")
+
         if tag.prop.property_type != existing_tag.prop.property_type:
             raise Exception("the property type does not match the existing tag")
 
@@ -186,7 +195,7 @@ def _find_edge_tags_by_content(self, prop: Property, since: Optional[datetime] =
 
     return tags
 
-def _find_edge_tags(self, edge: Edge, since: datetime = None, *args: str) -> list[EdgeTag]:
+def _find_edge_tags(self, edge: Edge, since: Optional[datetime] = None, *args: str) -> list[EdgeTag]:
     names = list(args)
     query = f"MATCH (p:EdgeTag {{edge_id: '{edge.id}'}}) RETURN p"
     if since is not None:
@@ -210,6 +219,9 @@ def _find_edge_tags(self, edge: Edge, since: datetime = None, *args: str) -> lis
             tag = node_to_edge_tag(node)
         except Exception as e:
             raise e
+
+        if tag.prop is None:
+            raise Exception("malformed edge tag")
 
         if len(names) > 0:
             n = tag.prop.name

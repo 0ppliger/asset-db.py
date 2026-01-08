@@ -19,20 +19,18 @@ class EntityTag:
         return self.prop.property_type.value
     
     def to_dict(self) -> dict:
-        def _flatten(d) -> dict:
-            flat = {}
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    flat.update(_flatten(v))
-                else:
-                    flat[k] = v
-            return flat
-
+        if self.id is None or \
+           self.created_at is None or \
+           self.updated_at is None or \
+           self.entity is None or \
+           self.prop is None:
+            raise Exception("malformed entity tag")
+        
         return {
             "tag_id":     self.id,
             "entity_id":  self.entity.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "ttype":      self.ttype,
-            **_flatten(self.prop.to_dict())
+            **self.prop.to_dict()
         }

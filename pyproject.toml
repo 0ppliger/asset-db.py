@@ -18,7 +18,7 @@ classifiers = [
 license = "Apache-2.0"
 license-files = ["LICENSE*"]
 dependencies = [
-  "open-asset-model"
+  "open-asset-model >= 0.0.3"
 ]
 
 [project.urls]
