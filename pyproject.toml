@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "asset-db"
-version = "0.0.1"
+version = "0.0.2"
 authors = [
   { name="J. Oppliger", email="julien@oppliger.cc" },
 ]
@@ -18,7 +18,8 @@ classifiers = [
 license = "Apache-2.0"
 license-files = ["LICENSE*"]
 dependencies = [
-  "open-asset-model >= 1.0.0"
+  "open-asset-model >= 1.0.0",
+  "neo4j >= 6.0.3"
 ]
 
 [project.urls]
