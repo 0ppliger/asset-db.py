@@ -7,6 +7,7 @@ from oam import make_oam_object_from_dict
 from oam import valid_relationship
 from oam import get_relation_by_type
 from oam import describe_oam_object
+from oam import Relation
 from oam import RelationType
 from neo4j import Result
 from neo4j.graph import Relationship
@@ -116,7 +117,7 @@ def _create_edge(self, edge: Edge) -> Edge:
 
 def _create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> Edge:
     return self.create_edge(
-        Edge(relation, from_entityn to_entity))
+        Edge(relation, from_entity, to_entity))
 
 def _edge_seen(self, edge: Edge, updated: datetime) -> None:
     try:

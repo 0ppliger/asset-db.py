@@ -4,6 +4,7 @@ from typing import Optional
 from oam import Asset
 from oam import AssetType
 from oam import Property
+from oam import Relation
 from asset_db.types.entity import Entity
 from asset_db.types.entity_tag import EntityTag
 from asset_db.types.edge import Edge

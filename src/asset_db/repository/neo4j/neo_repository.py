@@ -8,6 +8,7 @@ from uuid import uuid4
 from oam import Asset
 from oam import AssetType
 from oam import Property
+from oam import Relation
 from oam import valid_relationship
 from asset_db.types.entity import Entity
 from asset_db.types.edge import Edge
