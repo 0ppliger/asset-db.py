@@ -68,7 +68,7 @@ def _create_edge(self, edge: Edge) -> Edge:
        or edge.to_entity.asset is None:
         raise Exception("malformed edge")
     
-    if not valid_relationship(
+    if self.enforce_taxonomy and not valid_relationship(
             edge.from_entity.asset.asset_type,
             edge.relation.label,
             edge.relation.relation_type,

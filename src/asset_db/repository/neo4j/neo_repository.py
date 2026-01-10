@@ -47,9 +47,17 @@ class NeoRepository(Repository):
     db:     Driver
     dbname: str
 
-    def __init__(self,  uri: str, auth: tuple[str, str]):
+    def __init__(
+            self,
+            uri: str,
+            auth: tuple[str, str],
+            enforce_taxonomy: bool = True
+    ):
         self._uri = uri
         self._auth = auth
+        # Prefere to not us this. If something lack to the taxonomy
+        # please submit a pull request.
+        self.enforce_taxonomy = enforce_taxonomy
     
     def __enter__(self):
         _db = GraphDatabase.driver(self._uri, auth=self._auth)
