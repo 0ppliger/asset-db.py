@@ -56,6 +56,11 @@ def node_to_edge_tag(self, node: Node) -> EdgeTag:
         
         d[prop_key] = prop_value
 
+    extra_props = list(filter(lambda e: e.startswith("extra_"), node.keys()))
+    extra = { key: rel.get(key) for key in extra_props }
+
+    d.update(extra)
+        
     prop = cast(Property, make_oam_object_from_dict(property_cls, d))
 
     return EdgeTag(

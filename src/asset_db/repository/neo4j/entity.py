@@ -48,6 +48,11 @@ def node_to_entity(node: Node) -> Entity:
         
         d[prop_key] = prop_value
 
+    extra_props = list(filter(lambda e: e.startswith("extra_"), node.keys()))
+    extra = { key: rel.get(key) for key in extra_props }
+
+    d.update(extra)
+        
     asset = cast(Asset, make_oam_object_from_dict(asset_cls, d))
 
     return Entity(

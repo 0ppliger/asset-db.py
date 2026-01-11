@@ -36,7 +36,7 @@ def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Enti
         rel_cls = get_relation_by_type(rtype)
     except Exception as e:
         raise e
-
+    
     props = describe_oam_object(rel_cls)
     d = {}
     for prop_key in props:
@@ -46,8 +46,13 @@ def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Enti
         
         d[prop_key] = prop_value
 
-    relation = make_oam_object_from_dict(rel_cls, d)
+    extra_props = list(filter(lambda e: e.startswith("extra_"), rel.keys()))
+    extra = { key: rel.get(key) for key in extra_props }
 
+    d.update(extra)
+        
+    relation = make_oam_object_from_dict(rel_cls, d)
+    
     return Edge(
         id=eid,
         created_at=created_at,
@@ -137,9 +142,9 @@ def _get_duplicate_edge(self, edge: Edge, updated: datetime) -> Optional[Edge]:
     try:
         outs = self.outgoing_edges(edge.from_entity)
         for out in outs:
-            if edge.to_entity.id == out.to_entity.id and edge.relation == out.relation:
+            if edge.to_entity.id == out.to_entity.id and edge.relation.equals(out.relation):
                 self.edge_seen(out, updated)
-
+                
                 dup = self.find_edge_by_id(out.id)
                 break
     except Exception as e:
