@@ -21,13 +21,13 @@ class Repository(ABC):
     @abstractmethod
     def create_entity(
         self, entity: Entity
-    ) -> events.EntityInserted | events.EntityUpdated:
+    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
         pass
     
     @abstractmethod
     def create_asset(
         self, asset: Asset
-    ) -> events.EntityInserted | events.EntityUpdated:
+    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
         pass
     
     @abstractmethod
@@ -57,13 +57,13 @@ class Repository(ABC):
     @abstractmethod
     def create_relation(
         self, relation: Relation, from_entity: Entity, to_entity: Entity
-    ) -> events.EdgeInserted | events.EdgeUpdated:
+    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
         pass
     
     @abstractmethod
     def create_edge(
         self, edge: Edge
-    ) -> events.EdgeInserted | events.EdgeUpdated:
+    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
         pass
     
     @abstractmethod
@@ -92,14 +92,14 @@ class Repository(ABC):
     
     @abstractmethod
     def create_entity_tag(
-        self, entity: Entity, tag: EntityTag
-    ) -> events.EntityTagInserted | events.EntityTagUpdated:
+        self, tag: EntityTag
+    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
         pass
     
     @abstractmethod
     def create_entity_property(
         self, entity: Entity, prop: Property
-    ) -> events.EntityTagInserted | events.EntityTagUpdated:
+    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
         pass
     
     @abstractmethod
@@ -128,14 +128,14 @@ class Repository(ABC):
     
     @abstractmethod
     def create_edge_tag(
-        self, edge: Edge, tag: EdgeTag
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated:
+        self, tag: EdgeTag
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
         pass
     
     @abstractmethod
     def create_edge_property(
         self, edge: Edge, prop: Property
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated:
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
         pass
     
     @abstractmethod

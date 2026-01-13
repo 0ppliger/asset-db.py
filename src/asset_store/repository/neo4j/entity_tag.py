@@ -1,10 +1,11 @@
+from asset_store.events import events
 from asset_store.types import Entity
 from asset_store.types import EntityTag
 from asset_model import Property
 from asset_model import PropertyType
 from asset_model import get_property_by_type
-from asset_model import describe_oam_object
-from asset_model import make_oam_object_from_dict
+from asset_model import describe_type
+from asset_model import OAMObject
 from typing import Optional
 from typing import cast
 from datetime import datetime
@@ -13,7 +14,7 @@ from neo4j import Result
 from neo4j.graph import Node
 from uuid import uuid4
 
-def node_to_entity_tag(self, node: Node) -> EntityTag:
+def _node_to_entity_tag(self, node: Node) -> EntityTag:
     id = node.get("tag_id")
     if id is None:
         raise Exception("Unable to extract 'tag_id'")
@@ -47,7 +48,7 @@ def node_to_entity_tag(self, node: Node) -> EntityTag:
     except Exception as e:
         raise e
 
-    props = describe_oam_object(property_cls)
+    props = describe_type(property_cls)
     d = {}
     for prop_key in props:
         prop_value = node.get(prop_key)
@@ -61,7 +62,7 @@ def node_to_entity_tag(self, node: Node) -> EntityTag:
 
     d.update(extra)
         
-    prop = cast(Property, make_oam_object_from_dict(property_cls, d))
+    prop = cast(Property, OAMObject.from_dict(property_cls, d))
         
     return EntityTag(
         id=id,
@@ -71,65 +72,35 @@ def node_to_entity_tag(self, node: Node) -> EntityTag:
         prop=prop
     )
 
-def _create_entity_tag(self, entity: Entity, tag: EntityTag) -> EntityTag:
+def _find_existing_entity_tag(self, tag: EntityTag) -> Optional[EntityTag]:
+    if tag.id is not None and tag.id != "":
+        return self.find_entity_tag_by_id(tag.id)
+    else:
+        findings = self.find_entity_tags_by_content(tag.prop)
+        if len(findings) > 0:
+            return findings[0]
+    return None
+
+
+def create_entity_tag(self, tag: EntityTag) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
 
     if tag.prop is None:
         raise Exception("malformed entity tag")
+
+    new_tag: Optional[EntityTag] = None
+    old_tag: Optional[EntityTag] = _find_existing_entity_tag(self, tag)
     
-    existing_tag = None
-    if tag.id is not None and tag.id != "":
-        existing_tag = EntityTag(
-            id=tag.id,
-            created_at=tag.created_at,
-            updated_at=datetime.now(),
-            prop=tag.prop,
-            entity=entity,
+    # If the entity tag does not exist, create it
+    if old_tag is None:
+        new_tag = EntityTag(
+            id         = str(uuid4()),
+            created_at = datetime.now(),
+            updated_at = datetime.now(),
+            entity     = tag.entity,
+            prop       = tag.prop
         )
-    else:
-        try:
-            tags = self.find_entity_tags_by_content(tag.prop)
-            for t in tags:
-                if t.entity.id == entity.id:
-                    existing_tag = t
-                    break
-
-            if existing_tag is not None:
-                existing_tag.entity = entity
-                existing_tag.prop = tag.prop
-                existing_tag.updated_at = datetime.now()
-        except Exception as e:
-            pass
-
-    if existing_tag is not None:
-        if existing_tag.prop is None:
-            raise Exception("malformed entity tag")
-        
-        if tag.prop.property_type != existing_tag.prop.property_type:
-            raise Exception("the property type does not match the existing tag")
-
-        props = existing_tag.to_dict()
-
-        try:
-            record = self.db.execute_query(
-                f"MATCH (n:EntityTag {{tag_id: $tid}}) SET n = $props RETURN n",
-                {"tid": existing_tag.id, "props": props},
-                result_transformer_=Result.single
-            )
-        except Exception as e:
-            raise e
-
-        return existing_tag
-
-    else:
-        if tag.id is None or tag.id == "":
-            tag.id = str(uuid4())
-        if tag.created_at is None:
-            tag.created_at = datetime.now()
-        if tag.updated_at is None:
-            tag.updated_at = datetime.now()
-
-        tag.entity = entity
-        props = tag.to_dict()
+    
+        props = new_tag.to_dict()
 
         try:
             record = self.db.execute_query(
@@ -139,12 +110,43 @@ def _create_entity_tag(self, entity: Entity, tag: EntityTag) -> EntityTag:
         except Exception as e:
             raise e
 
-        return tag
+        if record is None:
+            raise Exception("no records returned from the query")
 
-def _create_entity_property(self, entity: Entity, prop: Property) -> EntityTag:
-    return self.create_entity_tag(entity, EntityTag(entity=entity, prop=prop))
+        return events.EntityTagInserted(tag=new_tag)
+    
+    # If the entity tag already exists and has new data, update it
+    if tag.prop.is_fresher_than(old_tag.prop):
+        new_tag = EntityTag(
+            id         = old_tag.id,
+            created_at = old_tag.created_at,
+            updated_at = datetime.now(),
+            entity     = old_tag.entity,
+            prop       = old_tag.prop.override_with(tag.prop)
+        )
 
-def _find_entity_tags_by_content(self, prop: Property, since: Optional[datetime] = None) -> list[EntityTag]:
+        props = new_tag.to_dict()
+
+        try:
+            record = self.db.execute_query(
+                f"MATCH (n:EntityTag {{tag_id: $tid}}) SET n = $props RETURN n",
+                {"tid": new_tag.id, "props": props},
+                result_transformer_=Result.single
+            )
+        except Exception as e:
+            raise e
+
+
+        return events.EntityTagUpdated(old_tag=old_tag, tag=new_tag)
+
+    # If the entity already exists and has no new data, return the existing entity
+    return events.EntityTagUntouched(tag=old_tag)
+
+
+def create_entity_property(self, entity: Entity, prop: Property) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+    return self.create_entity_tag(EntityTag(entity=entity, prop=prop))
+
+def find_entity_tags_by_content(self, prop: Property, since: Optional[datetime] = None) -> list[EntityTag]:
         tags: list[EntityTag] = []
 
         props = prop.to_dict()
@@ -167,7 +169,7 @@ def _find_entity_tags_by_content(self, prop: Property, since: Optional[datetime]
             if node is None:
                 continue
 
-            tag = node_to_entity_tag(self, node)
+            tag = _node_to_entity_tag(self, node)
             if tag:
                 tags.append(tag)
 
@@ -176,7 +178,7 @@ def _find_entity_tags_by_content(self, prop: Property, since: Optional[datetime]
 
         return tags
         
-def _find_entity_tag_by_id(self, id: str) -> EntityTag:
+def find_entity_tag_by_id(self, id: str) -> EntityTag:
     try:
         result = self.db.execute_query("MATCH (p:EntityTag {tag_id: $id}) RETURN p", {"id": id})
     except Exception as e:
@@ -189,9 +191,9 @@ def _find_entity_tag_by_id(self, id: str) -> EntityTag:
     if node is None:
         raise Exception("the record value for the node is empty")
 
-    return node_to_entity_tag(self, node)
+    return _node_to_entity_tag(self, node)
 
-def _find_entity_tags(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[EntityTag]:
+def find_entity_tags(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[EntityTag]:
     names = list(args)
     query = f"MATCH (p:EntityTag {{entity_id: '{entity.id}'}}) RETURN p"
     if since is not None:
@@ -212,7 +214,7 @@ def _find_entity_tags(self, entity: Entity, since: Optional[datetime] = None, *a
             continue
 
         try:
-            tag = node_to_entity_tag(self, node)
+            tag = _node_to_entity_tag(self, node)
         except Exception as e:
             raise e
 
@@ -234,10 +236,14 @@ def _find_entity_tags(self, entity: Entity, since: Optional[datetime] = None, *a
 
     return tags
 
-def _delete_entity_tag(self, id: str) -> None:
+def delete_entity_tag(self, id: str) -> events.EntityTagDeleted:
+    entity = self.find_entity_tag_by_id(id)
+
     try:
         self.db.execute_query(
             "MATCH (n:EntityTag {tag_id: $id}) DETACH DELETE n",
             {"id": id})
     except Exception as e:
         raise e
+
+    return events.EntityTagDeleted(old_tag=entity)

@@ -1,20 +1,21 @@
 from datetime import datetime
+from turtle import update
 from asset_store.events import events
 from asset_store.types.edge import Edge
 from asset_store.types.entity import Entity
 from typing import Optional
-from typing import cast
-from asset_model import make_oam_object_from_dict
+from asset_model import OAMObject
 from asset_model import valid_relationship
 from asset_model import get_relation_by_type
-from asset_model import describe_oam_object
+from asset_model import describe_type
 from asset_model import Relation
 from asset_model import RelationType
 from neo4j import Result
 from neo4j.graph import Relationship
 from neo4j.time import DateTime
+from uuid import uuid4
 
-def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Entity) -> Edge:
+def _relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Entity) -> Edge:
 
     eid = rel.element_id
 
@@ -38,7 +39,7 @@ def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Enti
     except Exception as e:
         raise e
     
-    props = describe_oam_object(rel_cls)
+    props = describe_type(rel_cls)
     d = {}
     for prop_key in props:
         prop_value = rel.get(prop_key)
@@ -52,7 +53,7 @@ def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Enti
 
     d.update(extra)
         
-    relation = make_oam_object_from_dict(rel_cls, d)
+    relation = OAMObject.from_dict(rel_cls, d)
     
     return Edge(
         id=eid,
@@ -62,18 +63,24 @@ def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Enti
         from_entity=from_entity,
         to_entity=to_entity
     )
-    
-def _create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated:
 
-    if edge.relation is None \
-       or edge.from_entity is None \
-       or edge.to_entity is None:
-        raise Exception("failed input validation check")
-
-    if edge.from_entity.asset is None \
-       or edge.to_entity.asset is None:
-        raise Exception("malformed edge")
+def _find_existing_edge(self, edge: Edge) -> Optional[Edge]:
+    if edge.id is not None and edge.id != "":
+        return self.find_edge_by_id(edge.id)
     
+    try:
+        outs = self.outgoing_edges(edge.from_entity)
+        for out in outs:
+            if edge.to_entity.id == out.to_entity.id and edge.relation.equals(out.relation):                
+                return out
+    except Exception as e:
+        return None
+
+    return None
+
+    
+def create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+
     if self.enforce_taxonomy and not valid_relationship(
             edge.from_entity.asset.asset_type,
             edge.relation.label,
@@ -85,75 +92,45 @@ def _create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated:
             edge.relation.label,
             edge.to_entity.asset.asset_type))
 
-    if not edge.updated_at:
-        edge.updated_at = datetime.now()
 
-    dup = self.get_duplicate_edge(edge, edge.updated_at)
-    if dup is not None:
-        return dup
+    new_edge: Optional[Edge] = None
+    old_edge: Optional[Edge] = _find_existing_edge(self, edge)
 
-    if not edge.created_at:
-        edge.created_at = datetime.now()
+    # If the edge does not exist, create it
+    if old_edge is None:
+        new_edge = Edge(
+            id          = str(uuid4()),
+            created_at  = datetime.now(),
+            updated_at  = datetime.now(),
+            from_entity = edge.from_entity,
+            to_entity   = edge.to_entity,
+            relation    = edge.relation
+        )
 
-    try:
-        record = self.db.execute_query(
-            f"""
-            MATCH (from:Entity {{entity_id: "{edge.from_entity.id}"}})
-            MATCH (to:Entity {{entity_id: "{edge.to_entity.id}"}})
-            CREATE (from) -[r:{edge.label} $props]-> (to) RETURN r, from, to
-            """,
-            {"props": edge.to_dict()},
-            result_transformer_=Result.single)
-    except Exception as e:
-        raise e
+        try:
+            record = self.db.execute_query(
+                f"""
+                MATCH (from:Entity {{entity_id: "{new_edge.from_entity.id}"}})
+                MATCH (to:Entity {{entity_id: "{new_edge.to_entity.id}"}})
+                CREATE (from) -[r:{new_edge.label} $props]-> (to) RETURN r, from, to
+                """,
+                {"props": new_edge.to_dict()},
+                result_transformer_=Result.single)
+        except Exception as e:
+            raise e
 
-    if record is None:
-        raise Exception("no records returned from the query")
+        if record is None:
+            raise Exception("no records returned from the query")
 
-    r = record.get("r")
-    if r is None:
-        raise Exception("the record value for the relationship is empty")
+        return events.EdgeInserted(edge=new_edge)
 
-    try:
-        _edge = relationship_to_edge(r, edge.from_entity, edge.to_entity)
-    except Exception as e:
-        raise e
+    return events.EdgeUntouched(edge=old_edge)
 
-    return _edge
-
-def _create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> events.EdgeInserted | events.EdgeUpdated:
+def create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> events.EdgeInserted | events.EdgeUpdated:
     return self.create_edge(
         Edge(relation, from_entity, to_entity))
 
-def _edge_seen(self, edge: Edge, updated: datetime) -> None:
-    try:
-        self.db.execute_query(
-            f"MATCH ()-[r]->() WHERE elementId(r) = $id SET r.updated_at = localDateTime('{updated.isoformat()}')",
-            {"id": edge.id}
-        )
-    except Exception as e:
-        raise e
-
-def _get_duplicate_edge(self, edge: Edge, updated: datetime) -> Optional[Edge]:
-    dup = None
-
-    if edge.to_entity is None:
-        raise Exception("malformed edge")
-    
-    try:
-        outs = self.outgoing_edges(edge.from_entity)
-        for out in outs:
-            if edge.to_entity.id == out.to_entity.id and edge.relation.equals(out.relation):
-                self.edge_seen(out, updated)
-                
-                dup = self.find_edge_by_id(out.id)
-                break
-    except Exception as e:
-        return None
-
-    return dup
-
-def _incoming_edges(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[Edge]:
+def incoming_edges(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[Edge]:
     labels:  list[str]  = list(args)
     results: list[Edge] = []
 
@@ -194,7 +171,7 @@ def _incoming_edges(self, entity: Entity, since: Optional[datetime] = None, *arg
             raise e
         
         try:
-            edge = relationship_to_edge(r, from_entity, entity)
+            edge = _relationship_to_edge(r, from_entity, entity)
         except Exception as e:
             raise e
 
@@ -205,7 +182,7 @@ def _incoming_edges(self, entity: Entity, since: Optional[datetime] = None, *arg
 
     return results
 
-def _outgoing_edges(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[Edge]:
+def outgoing_edges(self, entity: Entity, since: Optional[datetime] = None, *args: str) -> list[Edge]:
     labels:  list[str]  = list(args)
     results: list[Edge] = []
 
@@ -243,7 +220,7 @@ def _outgoing_edges(self, entity: Entity, since: Optional[datetime] = None, *arg
             raise e
 
         try:
-            edge = relationship_to_edge(r, entity, to_entity)
+            edge = _relationship_to_edge(r, entity, to_entity)
         except Exception as e:
             continue
 
@@ -254,7 +231,7 @@ def _outgoing_edges(self, entity: Entity, since: Optional[datetime] = None, *arg
 
     return results
 
-def _find_edge_by_id(self, id: str) -> Edge:
+def find_edge_by_id(self, id: str) -> Edge:
     try:
         record = self.db.execute_query(
             f"MATCH (from:Entity) -[r]-> (to:Entity) WHERE elementId(r) = $id RETURN r, from.entity_id as fid, to.entity_id as tid",
@@ -289,16 +266,20 @@ def _find_edge_by_id(self, id: str) -> Edge:
         raise e
     
     try:
-        edge = relationship_to_edge(r, from_entity, to_entity)
+        edge = _relationship_to_edge(r, from_entity, to_entity)
     except Exception as e:
         raise e
 
     return edge
 
-def _delete_edge(self, id: str) -> events.EdgeDeleted:
+def delete_edge(self, id: str) -> events.EdgeDeleted:
+    edge = self.find_edge_by_id(id)
+
     try:
         self.db.execute_query(
             "MATCH ()-[r]->() WHERE elementId(r) = $id DELETE r",
             {"id": id})
     except Exception as e:
         raise e
+
+    return events.EdgeDeleted(old_edge=edge)

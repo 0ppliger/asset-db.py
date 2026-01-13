@@ -16,32 +16,30 @@ from asset_store.types.entity_tag import EntityTag
 from asset_store.types.edge_tag import EdgeTag
 from asset_store.repository.repository_type import RepositoryType
 from asset_store.repository.repository import Repository
-from asset_store.repository.neo4j.entity import _create_asset
-from asset_store.repository.neo4j.entity import _create_entity
-from asset_store.repository.neo4j.entity import _delete_entity
-from asset_store.repository.neo4j.entity import _find_entities_by_content
-from asset_store.repository.neo4j.entity import _find_entities_by_type
-from asset_store.repository.neo4j.entity import _find_entity_by_id
-from asset_store.repository.neo4j.edge import _create_edge
-from asset_store.repository.neo4j.edge import _create_relation
-from asset_store.repository.neo4j.edge import _edge_seen
-from asset_store.repository.neo4j.edge import _get_duplicate_edge
-from asset_store.repository.neo4j.edge import _find_edge_by_id
-from asset_store.repository.neo4j.edge import _incoming_edges
-from asset_store.repository.neo4j.edge import _outgoing_edges
-from asset_store.repository.neo4j.edge import _delete_edge
-from asset_store.repository.neo4j.entity_tag import _create_entity_tag
-from asset_store.repository.neo4j.entity_tag import _create_entity_property
-from asset_store.repository.neo4j.entity_tag import _delete_entity_tag
-from asset_store.repository.neo4j.entity_tag import _find_entity_tags
-from asset_store.repository.neo4j.entity_tag import _find_entity_tags_by_content
-from asset_store.repository.neo4j.entity_tag import _find_entity_tag_by_id
-from asset_store.repository.neo4j.edge_tag import _create_edge_tag
-from asset_store.repository.neo4j.edge_tag import _create_edge_property
-from asset_store.repository.neo4j.edge_tag import _delete_edge_tag
-from asset_store.repository.neo4j.edge_tag import _find_edge_tags
-from asset_store.repository.neo4j.edge_tag import _find_edge_tags_by_content
-from asset_store.repository.neo4j.edge_tag import _find_edge_tag_by_id
+from asset_store.repository.neo4j.entity import create_asset
+from asset_store.repository.neo4j.entity import create_entity
+from asset_store.repository.neo4j.entity import delete_entity
+from asset_store.repository.neo4j.entity import find_entities_by_content
+from asset_store.repository.neo4j.entity import find_entities_by_type
+from asset_store.repository.neo4j.entity import find_entity_by_id
+from asset_store.repository.neo4j.edge import create_edge
+from asset_store.repository.neo4j.edge import create_relation
+from asset_store.repository.neo4j.edge import find_edge_by_id
+from asset_store.repository.neo4j.edge import incoming_edges
+from asset_store.repository.neo4j.edge import outgoing_edges
+from asset_store.repository.neo4j.edge import delete_edge
+from asset_store.repository.neo4j.entity_tag import create_entity_tag
+from asset_store.repository.neo4j.entity_tag import create_entity_property
+from asset_store.repository.neo4j.entity_tag import delete_entity_tag
+from asset_store.repository.neo4j.entity_tag import find_entity_tags
+from asset_store.repository.neo4j.entity_tag import find_entity_tags_by_content
+from asset_store.repository.neo4j.entity_tag import find_entity_tag_by_id
+from asset_store.repository.neo4j.edge_tag import create_edge_tag
+from asset_store.repository.neo4j.edge_tag import create_edge_property
+from asset_store.repository.neo4j.edge_tag import delete_edge_tag
+from asset_store.repository.neo4j.edge_tag import find_edge_tags
+from asset_store.repository.neo4j.edge_tag import find_edge_tags_by_content
+from asset_store.repository.neo4j.edge_tag import find_edge_tag_by_id
 from asset_store.events import events
 
 class NeoRepository(Repository):
@@ -77,66 +75,54 @@ class NeoRepository(Repository):
     def create_entity(
             self,
             entity: Entity
-    ) -> events.EntityInserted | events.EntityUpdated:
-        return _create_entity(self, entity)
+    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+        return create_entity(self, entity)
     
     def create_asset(
             self,
             asset: Asset
-    ) -> events.EntityInserted | events.EntityUpdated:
-        return _create_asset(self, asset)
+    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+        return create_asset(self, asset)
     
     def find_entity_by_id(
             self,
             id: str
     ) -> Entity:
-        return _find_entity_by_id(self, id)
+        return find_entity_by_id(self, id)
     
     def find_entities_by_content(
             self,
             asset: Asset,
             since: Optional[datetime] = None
     ) -> List[Entity]:
-        return _find_entities_by_content(self, asset, since)
+        return find_entities_by_content(self, asset, since)
     
     def find_entities_by_type(
             self,
             atype: AssetType,
             since: Optional[datetime] = None
     ) -> List[Entity]:
-        return _find_entities_by_type(self, atype, since)
+            return find_entities_by_type(self, atype, since)
     
     def delete_entity(
             self,
             id: str
     ) -> events.EntityDeleted:
-        return _delete_entity(self, id)
+        return delete_entity(self, id)
 
     def create_edge(
             self,
             edge: Edge
-    ) -> events.EdgeInserted | events.EdgeUpdated:
-        return _create_edge(self, edge)
+    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+        return create_edge(self, edge)
 
     def create_relation(
             self,
             relation: Relation,
             from_entity: Entity,
-            to_entity: Entity) -> events.EdgeInserted | events.EdgeUpdated:
-        return _create_relation(self, relation, from_entity, to_entity)
-    
-    def edge_seen(
-            self,
-            edge: Edge,
-            updated: datetime
-    ) -> None:
-        _edge_seen(self, edge, updated)
-
-    def get_duplicate_edge(
-            self, edge: Edge,
-            updated: datetime
-    ) -> Optional[Edge]:
-        return _get_duplicate_edge(self, edge, updated)
+            to_entity: Entity
+    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+        return create_relation(self, relation, from_entity, to_entity)
 
     def incoming_edges(
             self,
@@ -144,7 +130,7 @@ class NeoRepository(Repository):
             since: Optional[datetime] = None,
             *args: str
     ) -> List[Edge]:
-        return _incoming_edges(self, entity, since, *args)
+        return incoming_edges(self, entity, since, *args)
 
     def outgoing_edges(
             self,
@@ -152,32 +138,38 @@ class NeoRepository(Repository):
             since: Optional[datetime] = None,
             *args: str
     ) -> List[Edge]:
-        return _outgoing_edges(self, entity, since, *args)
+        return outgoing_edges(self, entity, since, *args)
 
     def find_edge_by_id(
             self,
             id: str
     ) -> Edge:
-        return _find_edge_by_id(self, id)
+        return find_edge_by_id(self, id)
 
     def delete_edge(
             self,
             id: str
     ) -> events.EdgeDeleted:
-        return _delete_edge(self, id)
+        return delete_edge(self, id)
     
     def create_entity_tag(
             self,
-            entity: Entity,
             tag: EntityTag
-    ) -> events.EntityTagInserted | events.EntityTagUpdated:
-        return _create_entity_tag(self, entity, tag)
+    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+        return create_entity_tag(self, tag)
+
+    def create_entity_property(
+            self,
+            entity: Entity,
+            prop: Property
+    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+        return create_entity_property(self, entity, prop)
 
     def find_entity_tag_by_id(
             self,
             id: str
     ) -> EntityTag:
-        return _find_entity_tag_by_id(self, id)
+        return find_entity_tag_by_id(self, id)
 
     def find_entity_tags(
             self,
@@ -185,53 +177,46 @@ class NeoRepository(Repository):
             since: Optional[datetime] = None,
             *args: str
     ) -> List[EntityTag]:
-        return _find_entity_tags(self, entity, since, *args)
-
-    def create_entity_property(
-            self,
-            entity: Entity,
-            prop: Property
-    ) -> events.EntityTagInserted | events.EntityTagUpdated:
-        return _create_entity_property(self, entity, prop)
+        return find_entity_tags(self, entity, since, *args)
 
     def delete_entity_tag(
             self,
             id: str
     ) -> events.EntityTagDeleted:
-        return _delete_entity_tag(self, id)
+        return delete_entity_tag(self, id)
     
     def find_entity_tags_by_content(
             self,
             prop: Property,
             since: Optional[datetime] = None
     ) -> List[EntityTag]:
-        return _find_entity_tags_by_content(self, prop, since)
+        return find_entity_tags_by_content(self, prop, since)
 
     def create_edge_tag(
             self,
-            edge: Edge,
-            tag: EdgeTag) -> events.EdgeTagInserted | events.EdgeTagUpdated:
-        return _create_edge_tag(self, edge, tag)
+            tag: EdgeTag
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+        return create_edge_tag(self, tag)
 
     def create_edge_property(
             self,
             edge: Edge,
             prop: Property
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated:
-        return _create_edge_property(self, edge, prop)
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+        return create_edge_property(self, edge, prop)
 
     def find_edge_tag_by_id(
             self,
             id: str
     ) -> EdgeTag:
-        return _find_edge_tag_by_id(self, id)
+        return find_edge_tag_by_id(self, id)
 
     def find_edge_tags_by_content(
             self,
             prop: Property,
             since: Optional[datetime] = None
     ) -> List[EdgeTag]:
-        return _find_edge_tags_by_content(self, prop, since)
+        return find_edge_tags_by_content(self, prop, since)
 
     def find_edge_tags(
             self,
@@ -239,10 +224,10 @@ class NeoRepository(Repository):
             since: Optional[datetime] = None,
             *args: str
     ) -> List[EdgeTag]:
-        return _find_edge_tags(self, edge, since, *args)
+        return find_edge_tags(self, edge, since, *args)
 
     def delete_edge_tag(
             self,
             id: str
     ) -> events.EdgeTagDeleted:
-        return _delete_edge_tag(self, id)
+        return delete_edge_tag(self, id)

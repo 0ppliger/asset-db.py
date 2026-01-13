@@ -1,9 +1,9 @@
 from asset_store.types.entity import Entity
 from asset_model import Asset
+from asset_model import OAMObject
 from asset_model import AssetType
 from asset_model import get_asset_by_type
-from asset_model import describe_oam_object
-from asset_model import make_oam_object_from_dict
+from asset_model import describe_type
 from typing import Optional
 from typing import cast
 from datetime import datetime
@@ -11,9 +11,9 @@ from neo4j import Result
 from neo4j.time import DateTime
 from neo4j.graph import Node
 from uuid import uuid4
-from asset_model import FQDN, IPAddress, IPAddressType
+from asset_store.events import events
 
-def node_to_entity(node: Node) -> Entity:
+def _node_to_entity(node: Node) -> Entity:
     id = node.get("entity_id")
     if id is None:
         raise Exception("Unable to extract 'entity_id'")
@@ -39,7 +39,7 @@ def node_to_entity(node: Node) -> Entity:
     except Exception as e:
         raise e
 
-    props = describe_oam_object(asset_cls)
+    props = describe_type(asset_cls)
     d = {}
     for prop_key in props:
         prop_value = node.get(prop_key)
@@ -53,8 +53,7 @@ def node_to_entity(node: Node) -> Entity:
 
     d.update(extra)
         
-    asset = cast(Asset, make_oam_object_from_dict(asset_cls, d))
-
+    asset = cast(Asset, OAMObject.from_dict(asset_cls, d))
     return Entity(
         id=id,
         created_at=created_at,
@@ -62,22 +61,22 @@ def node_to_entity(node: Node) -> Entity:
         asset=asset
     )
 
-def _create_entity(self, entity: Entity) -> Entity:
-    _entity: Optional[Entity] = None
-
+def _find_existing_entity(self, entity: Entity) -> Optional[Entity]:
     if entity.id != None and entity.id != "":
-        _entity = Entity(
-            id=entity.id,
-            asset=entity.asset,
-            created_at=entity.created_at,
-            updated_at=entity.updated_at)
+        return self.find_entity_by_id(entity.id)
     else:
         findings = self.find_entities_by_content(entity.asset)
         if len(findings) > 0:
-            _entity = findings[0]
+            return findings[0]
+    return None
 
-    if _entity == None:
-        _entity = Entity(
+def create_entity(self, entity: Entity) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+    new_entity: Optional[Entity] = None
+    old_entity: Optional[Entity] = _find_existing_entity(self, entity)
+
+    # If the entity does not exist, create it
+    if old_entity is None:
+        new_entity = Entity(
             id         = str(uuid4()),
             created_at = datetime.now(),
             updated_at = datetime.now(),
@@ -86,8 +85,8 @@ def _create_entity(self, entity: Entity) -> Entity:
 
         try:
             record = self.db.execute_query(
-                f"CREATE (a:Entity:{_entity.etype} $props) RETURN a",
-                {"props": _entity.to_dict()},
+                f"CREATE (a:Entity:{new_entity.etype} $props) RETURN a",
+                {"props": new_entity.to_dict()},
                 result_transformer_=Result.single)
         except Exception as e:
             raise e
@@ -95,22 +94,38 @@ def _create_entity(self, entity: Entity) -> Entity:
         if record is None:
             raise Exception("no records returned from the query")
 
-    else:
+        return events.EntityInserted(entity=new_entity)
+
+    # If the entity already exists and has new data, update it
+    if entity.asset.is_fresher_than(old_entity.asset):
+        new_entity = Entity(
+            id         = old_entity.id,
+            asset      = old_entity.asset.override_with(entity.asset),
+            created_at = old_entity.created_at,
+            updated_at = datetime.now()
+        )
+
         try:
             record = self.db.execute_query(
-                f"MATCH (a:Entity:{_entity.etype} {{entity_id: $id}}) SET a=$props RETURN a",
-                {"id": _entity.id, "props": _entity.to_dict()},
+                f"MATCH (a:Entity:{new_entity.etype} {{entity_id: $id}}) SET a=$props RETURN a",
+                {"id": new_entity.id, "props": new_entity.to_dict()},
                 result_transformer_=Result.single)
         except Exception as e:
             raise e
 
-    return _entity
+        if record is None:
+            raise Exception("no records returned from the query")
 
-def _create_asset(self, asset: Asset) -> Entity:
+        return events.EntityUpdated(old_entity=old_entity, entity=new_entity)
+
+    # If the entity already exists and has no new data, return the existing entity
+    return events.EntityUntouched(entity=old_entity)
+
+def create_asset(self, asset: Asset) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
     return self.create_entity(
         Entity(asset=asset))
 
-def _find_entity_by_id(self, id: str) -> Entity:
+def find_entity_by_id(self, id: str) -> Entity:
     try:
         record = self.db.execute_query(
             f"MATCH (a:Entity {{entity_id: $id}}) RETURN a",
@@ -126,10 +141,10 @@ def _find_entity_by_id(self, id: str) -> Entity:
     if node is None:
         raise Exception("the record value for the node is empty")
 
-    entity = node_to_entity(node)
+    entity = _node_to_entity(node)
     return entity
 
-def _find_entities_by_content(self, asset: Asset, since: Optional[datetime]) -> list[Entity]:
+def find_entities_by_content(self, asset: Asset, since: Optional[datetime]) -> list[Entity]:
     entities: list[Entity] = []        
 
     props = asset.to_dict()
@@ -152,11 +167,11 @@ def _find_entities_by_content(self, asset: Asset, since: Optional[datetime]) -> 
         if node is None:
             continue
 
-        entities.append(node_to_entity(node))
+        entities.append(_node_to_entity(node))
 
     return entities
 
-def _find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) -> list[Entity]:
+def find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) -> list[Entity]:
     query = f"MATCH (a:{atype.value} RETURN a)"
     if since is not None:
         query = f"MATCH (a:{atype.value}) WHERE a.updated_at >= localDateTime('{since.isoformat()}') RETURN a"
@@ -176,7 +191,7 @@ def _find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) ->
             raise Exception("the record value for the node is empty")
 
         try:
-            entity = node_to_entity(node)
+            entity = _node_to_entity(node)
         except Exception as e:
             raise e
 
@@ -187,10 +202,14 @@ def _find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) ->
 
     return results
 
-def _delete_entity(self, id: str) -> None:
+def delete_entity(self, id: str) -> events.EntityDeleted:
+    entity = self.find_entity_by_id(id)
+
     try:
         self.db.execute_query(
             "MATCH (n:Entity {entity_id: $id}) DETACH DELETE n",
             {"id": id})
     except Exception as e:
         raise e
+
+    return events.EntityDeleted(old_entity=entity)
