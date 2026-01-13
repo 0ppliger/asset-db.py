@@ -42,6 +42,7 @@ from asset_store.repository.neo4j.edge_tag import _delete_edge_tag
 from asset_store.repository.neo4j.edge_tag import _find_edge_tags
 from asset_store.repository.neo4j.edge_tag import _find_edge_tags_by_content
 from asset_store.repository.neo4j.edge_tag import _find_edge_tag_by_id
+from asset_store.events import events
 
 class NeoRepository(Repository):
     db:     Driver
@@ -55,8 +56,6 @@ class NeoRepository(Repository):
     ):
         self._uri = uri
         self._auth = auth
-        # Prefere to not us this. If something lack to the taxonomy
-        # please submit a pull request.
         self.enforce_taxonomy = enforce_taxonomy
     
     def __enter__(self):
@@ -69,22 +68,22 @@ class NeoRepository(Repository):
     def __exit__(self, exc_type, exc, tb):
         self.close()
 
-    def get_db_type(self):
+    def get_db_type(self) -> str:
         return RepositoryType.Neo4j
 
-    def close(self):
+    def close(self) -> None:
         self.db.close()
         
     def create_entity(
             self,
             entity: Entity
-    ) -> Entity:
+    ) -> events.EntityInserted | events.EntityUpdated:
         return _create_entity(self, entity)
     
     def create_asset(
             self,
             asset: Asset
-    ) -> Entity:
+    ) -> events.EntityInserted | events.EntityUpdated:
         return _create_asset(self, asset)
     
     def find_entity_by_id(
@@ -110,20 +109,20 @@ class NeoRepository(Repository):
     def delete_entity(
             self,
             id: str
-    ) -> None:
-        _delete_entity(self, id)
+    ) -> events.EntityDeleted:
+        return _delete_entity(self, id)
 
     def create_edge(
             self,
             edge: Edge
-    ) -> Edge:
+    ) -> events.EdgeInserted | events.EdgeUpdated:
         return _create_edge(self, edge)
 
     def create_relation(
             self,
             relation: Relation,
             from_entity: Entity,
-            to_entity: Entity) -> Edge:
+            to_entity: Entity) -> events.EdgeInserted | events.EdgeUpdated:
         return _create_relation(self, relation, from_entity, to_entity)
     
     def edge_seen(
@@ -134,8 +133,7 @@ class NeoRepository(Repository):
         _edge_seen(self, edge, updated)
 
     def get_duplicate_edge(
-            self, edge:
-            Edge,
+            self, edge: Edge,
             updated: datetime
     ) -> Optional[Edge]:
         return _get_duplicate_edge(self, edge, updated)
@@ -165,14 +163,14 @@ class NeoRepository(Repository):
     def delete_edge(
             self,
             id: str
-    ) -> None:
+    ) -> events.EdgeDeleted:
         return _delete_edge(self, id)
     
     def create_entity_tag(
             self,
             entity: Entity,
             tag: EntityTag
-    ) -> EntityTag:
+    ) -> events.EntityTagInserted | events.EntityTagUpdated:
         return _create_entity_tag(self, entity, tag)
 
     def find_entity_tag_by_id(
@@ -193,13 +191,13 @@ class NeoRepository(Repository):
             self,
             entity: Entity,
             prop: Property
-    ) -> EntityTag:
+    ) -> events.EntityTagInserted | events.EntityTagUpdated:
         return _create_entity_property(self, entity, prop)
 
     def delete_entity_tag(
             self,
             id: str
-    ) -> None:
+    ) -> events.EntityTagDeleted:
         return _delete_entity_tag(self, id)
     
     def find_entity_tags_by_content(
@@ -212,14 +210,14 @@ class NeoRepository(Repository):
     def create_edge_tag(
             self,
             edge: Edge,
-            tag: EdgeTag) -> EdgeTag:
+            tag: EdgeTag) -> events.EdgeTagInserted | events.EdgeTagUpdated:
         return _create_edge_tag(self, edge, tag)
 
     def create_edge_property(
             self,
             edge: Edge,
             prop: Property
-    ) -> EdgeTag:
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated:
         return _create_edge_property(self, edge, prop)
 
     def find_edge_tag_by_id(
@@ -246,5 +244,5 @@ class NeoRepository(Repository):
     def delete_edge_tag(
             self,
             id: str
-    ) -> None:
+    ) -> events.EdgeTagDeleted:
         return _delete_edge_tag(self, id)

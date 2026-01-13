@@ -5,6 +5,7 @@ from asset_model import Asset
 from asset_model import AssetType
 from asset_model import Property
 from asset_model import Relation
+from asset_store.events import events 
 from asset_store.types.entity import Entity
 from asset_store.types.entity_tag import EntityTag
 from asset_store.types.edge import Edge
@@ -18,99 +19,147 @@ class Repository(ABC):
         pass
     
     @abstractmethod
-    def create_entity(self, entity: Entity) -> Entity:
+    def create_entity(
+        self, entity: Entity
+    ) -> events.EntityInserted | events.EntityUpdated:
         pass
     
     @abstractmethod
-    def create_asset(self, asset: Asset) -> Entity:
+    def create_asset(
+        self, asset: Asset
+    ) -> events.EntityInserted | events.EntityUpdated:
         pass
     
     @abstractmethod
-    def find_entity_by_id(self, id: str) -> Entity:
+    def find_entity_by_id(
+        self, id: str
+    ) -> Entity:
         pass
     
     @abstractmethod
-    def find_entities_by_content(self, asset: Asset, since: Optional[datetime]) -> list[Entity]:
+    def find_entities_by_content(
+        self, asset: Asset, since: Optional[datetime]
+    ) -> list[Entity]:
         pass
     
     @abstractmethod
-    def find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) -> list[Entity]:
+    def find_entities_by_type(
+        self, atype: AssetType, since: Optional[datetime]
+    ) -> list[Entity]:
         pass
     
     @abstractmethod
-    def delete_entity(self, id: str) -> None:
+    def delete_entity(
+        self, id: str
+    ) -> events.EntityDeleted:
         pass
 
     @abstractmethod
-    def create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> Edge:
+    def create_relation(
+        self, relation: Relation, from_entity: Entity, to_entity: Entity
+    ) -> events.EdgeInserted | events.EdgeUpdated:
         pass
     
     @abstractmethod
-    def create_edge(self, edge: Edge) -> Edge:
+    def create_edge(
+        self, edge: Edge
+    ) -> events.EdgeInserted | events.EdgeUpdated:
         pass
     
     @abstractmethod
-    def find_edge_by_id(self, id: str) -> Edge:
+    def find_edge_by_id(
+        self, id: str
+    ) -> Edge:
         pass
     
     @abstractmethod
-    def incoming_edges(self, entity: Entity, since: Optional[datetime], *args: str) -> list[Edge]:
+    def incoming_edges(
+        self, entity: Entity, since: Optional[datetime], *args: str
+    ) -> list[Edge]:
         pass
     
     @abstractmethod
-    def outgoing_edges(self, entity: Entity, since: Optional[datetime], *args: str) -> list[Edge]:
+    def outgoing_edges(
+        self, entity: Entity, since: Optional[datetime], *args: str
+    ) -> list[Edge]:
         pass
     
     @abstractmethod
-    def delete_edge(self, id: str) -> None:
+    def delete_edge(
+        self, id: str
+    ) -> events.EdgeDeleted:
         pass
     
     @abstractmethod
-    def create_entity_tag(self, entity: Entity, tag: EntityTag) -> EntityTag:
+    def create_entity_tag(
+        self, entity: Entity, tag: EntityTag
+    ) -> events.EntityTagInserted | events.EntityTagUpdated:
         pass
     
     @abstractmethod
-    def create_entity_property(self, entity: Entity, prop: Property) -> EntityTag:
+    def create_entity_property(
+        self, entity: Entity, prop: Property
+    ) -> events.EntityTagInserted | events.EntityTagUpdated:
         pass
     
     @abstractmethod
-    def find_entity_tag_by_id(self, id: str) -> EntityTag:
+    def find_entity_tag_by_id(
+        self, id: str
+    ) -> EntityTag:
         pass
     
     @abstractmethod
-    def find_entity_tags_by_content(self, prop: Property, since: Optional[datetime]) -> list[EntityTag]:
+    def find_entity_tags_by_content(
+        self, prop: Property, since: Optional[datetime]
+    ) -> list[EntityTag]:
         pass
     
     @abstractmethod
-    def find_entity_tags(self, entity: Entity, since: Optional[datetime], *args: str) -> list[EntityTag]:
+    def find_entity_tags(
+        self, entity: Entity, since: Optional[datetime], *args: str
+    ) -> list[EntityTag]:
         pass
     
     @abstractmethod
-    def delete_entity_tag(self, id: str) -> None:
+    def delete_entity_tag(
+        self, id: str
+    ) -> events.EntityTagDeleted:
         pass
     
     @abstractmethod
-    def create_edge_tag(self, edge: Edge, tag: EdgeTag) -> EdgeTag:
+    def create_edge_tag(
+        self, edge: Edge, tag: EdgeTag
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated:
         pass
     
     @abstractmethod
-    def create_edge_property(self, edge: Edge, prop: Property) -> EdgeTag:
+    def create_edge_property(
+        self, edge: Edge, prop: Property
+    ) -> events.EdgeTagInserted | events.EdgeTagUpdated:
         pass
     
     @abstractmethod
-    def find_edge_tag_by_id(self, id: str) -> EdgeTag:
+    def find_edge_tag_by_id(
+        self, id: str
+    ) -> EdgeTag:
         pass
     
     @abstractmethod
-    def find_edge_tags_by_content(self, prop: Property, since: Optional[datetime]) -> list[EdgeTag]:
+    def find_edge_tags_by_content(
+        self, prop: Property, since: Optional[datetime]
+    ) -> list[EdgeTag]:
         pass
     
     @abstractmethod
-    def find_edge_tags(self, edge: Edge, since: Optional[datetime], *args: str) -> list[EdgeTag]:
+    def find_edge_tags(
+        self, edge: Edge, since: Optional[datetime], *args: str
+    ) -> list[EdgeTag]:
         pass
     
     @abstractmethod
-    def delete_edge_tag(self, id: str) -> None:
+    def delete_edge_tag(
+        self, id: str
+    ) -> events.EdgeTagDeleted:
         pass
 
     @abstractmethod

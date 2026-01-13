@@ -1,4 +1,5 @@
 from datetime import datetime
+from asset_store.events import events
 from asset_store.types.edge import Edge
 from asset_store.types.entity import Entity
 from typing import Optional
@@ -62,7 +63,7 @@ def relationship_to_edge(rel: Relationship, from_entity: Entity, to_entity: Enti
         to_entity=to_entity
     )
     
-def _create_edge(self, edge: Edge) -> Edge:
+def _create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated:
 
     if edge.relation is None \
        or edge.from_entity is None \
@@ -120,7 +121,7 @@ def _create_edge(self, edge: Edge) -> Edge:
 
     return _edge
 
-def _create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> Edge:
+def _create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> events.EdgeInserted | events.EdgeUpdated:
     return self.create_edge(
         Edge(relation, from_entity, to_entity))
 
@@ -294,11 +295,10 @@ def _find_edge_by_id(self, id: str) -> Edge:
 
     return edge
 
-def _delete_edge(self, id: str) -> None:
+def _delete_edge(self, id: str) -> events.EdgeDeleted:
     try:
         self.db.execute_query(
             "MATCH ()-[r]->() WHERE elementId(r) = $id DELETE r",
             {"id": id})
     except Exception as e:
         raise e
-
