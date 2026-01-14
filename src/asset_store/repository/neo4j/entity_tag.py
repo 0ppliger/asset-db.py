@@ -179,14 +179,17 @@ def find_entity_tags_by_content(self, prop: Property, since: Optional[datetime] 
         
 def find_entity_tag_by_id(self, id: str) -> EntityTag:
     try:
-        result = self.db.execute_query("MATCH (p:EntityTag {tag_id: $id}) RETURN p", {"id": id})
+        record = self.db.execute_query(
+            "MATCH (p:EntityTag {tag_id: $id}) RETURN p",
+            {"id": id},
+            result_transformer_=Result.single)
     except Exception as e:
         raise e
 
-    if result is None:
+    if record is None:
         raise Exception(f"the entity tag with ID {id} was not found")
 
-    node = result.get("p")
+    node = record.get("p")
     if node is None:
         raise Exception("the record value for the node is empty")
 

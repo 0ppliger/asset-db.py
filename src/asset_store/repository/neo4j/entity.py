@@ -65,7 +65,7 @@ def _find_existing_entity(self, entity: Entity) -> Optional[Entity]:
     if entity.id != None and entity.id != "":
         return self.find_entity_by_id(entity.id)
     else:
-        findings = self.find_entities_by_content(entity.asset)
+        findings = self.find_entities_by_content(entity.asset, None)
         if len(findings) > 0:
             return findings[0]
     return None
@@ -138,7 +138,7 @@ def find_entity_by_id(self, id: str) -> Entity:
         raise e
 
     if record is None:
-        raise Exception("the entity with ID {id} was not found")
+        raise Exception(f"the entity with ID {id} was not found")
 
     node = record.get("a")
     if node is None:
@@ -172,7 +172,7 @@ def find_entities_by_content(self, asset: Asset, since: Optional[datetime]) -> l
     return entities
 
 def find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) -> list[Entity]:
-    query = f"MATCH (a:{atype.value} RETURN a)"
+    query = f"MATCH (a:{atype.value}) RETURN a"
     if since is not None:
         query = f"MATCH (a:{atype.value}) WHERE a.updated_at >= localDateTime('{since.isoformat()}') RETURN a"
 

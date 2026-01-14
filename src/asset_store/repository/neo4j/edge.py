@@ -311,7 +311,7 @@ def delete_edge(self, id: str) -> Edge:
 
     try:
         self.db.execute_query(
-            "MATCH ()-[r {{ edge_id: $id }}]->() DELETE r",
+            "MATCH ()-[r { edge_id: $id }]->() DELETE r",
             {"id": id})
     except Exception as e:
         raise e
