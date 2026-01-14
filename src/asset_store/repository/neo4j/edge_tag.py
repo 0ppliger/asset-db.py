@@ -80,7 +80,7 @@ def _find_existing_edge_tag(self, tag: EdgeTag) -> Optional[EdgeTag]:
             return findings[0]
     return None
 
-def create_edge_tag(self, tag: EdgeTag) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+def create_edge_tag(self, tag: EdgeTag) -> EdgeTag:
 
     if tag.prop is None:
         raise Exception("malformed entity tag")
@@ -112,7 +112,8 @@ def create_edge_tag(self, tag: EdgeTag) -> events.EdgeTagInserted | events.EdgeT
         if record is None:
             raise Exception("no records returned from the query")
 
-        return events.EdgeTagInserted(tag=new_tag)
+        self._emit(events.EdgeTagInserted(tag=new_tag))
+        return new_tag
 
 
     # If the entity tag already exists and has new data, update it
@@ -136,13 +137,18 @@ def create_edge_tag(self, tag: EdgeTag) -> events.EdgeTagInserted | events.EdgeT
         except Exception as e:
             raise e
 
-        return events.EdgeTagUpdated(old_tag=old_tag, tag=new_tag)
+        if record is None:
+            raise Exception("no records returned from the query")
+
+        self._emit(events.EdgeTagUpdated(old_tag=old_tag, tag=new_tag))
+        return new_tag
 
     # If the entity already exists and has no new data, return the existing entity
-    return events.EdgeTagUntouched(tag=old_tag)
+    self._emit(events.EdgeTagUntouched(tag=old_tag))
+    return old_tag
 
 
-def create_edge_property(self, edge: Edge, prop: Property) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+def create_edge_property(self, edge: Edge, prop: Property) -> EdgeTag:
     return self.create_edge_tag(EdgeTag(edge=edge, prop=prop))
 
 def find_edge_tag_by_id(self, id: str) -> EdgeTag:
@@ -175,9 +181,6 @@ def find_edge_tags_by_content(self, prop: Property, since: Optional[datetime] = 
     except Exception as e:
         raise e
 
-    if len(records) == 0:
-        raise Exception("no edge tags found")
-
     for record in records:
         node = record.get("p")
         if node is None:
@@ -188,7 +191,7 @@ def find_edge_tags_by_content(self, prop: Property, since: Optional[datetime] = 
             tags.append(tag)
 
     if len(tags) == 0:
-        raise Exception("no edge tag found")
+        return []
 
     return tags
 
@@ -202,9 +205,6 @@ def find_edge_tags(self, edge: Edge, since: Optional[datetime] = None, *args: st
         records, summary, keys = self.db.execute_query(query)
     except Exception as e:
         raise e
-
-    if len(records) == 0:
-        raise Exception("no edge tags found")
 
     tags: list[EdgeTag] = []
     for record in records:
@@ -231,12 +231,12 @@ def find_edge_tags(self, edge: Edge, since: Optional[datetime] = None, *args: st
 
 
     if len(tags) == 0:
-        raise Exception("no edge tag found")
+        return []
 
     return tags
 
-def delete_edge_tag(self, id: str) -> events.EdgeTagDeleted:    
-    edge = self.find_edge_tag_by_id(id)
+def delete_edge_tag(self, id: str) -> EdgeTag:    
+    tag = self.find_edge_tag_by_id(id)
     
 
     try:
@@ -246,4 +246,5 @@ def delete_edge_tag(self, id: str) -> events.EdgeTagDeleted:
     except Exception as e:
         raise e
 
-    return events.EdgeTagDeleted(old_tag=edge)
+    self._emit(events.EdgeTagDeleted(old_tag=tag))
+    return tag

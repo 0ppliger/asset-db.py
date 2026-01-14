@@ -19,15 +19,19 @@ class Repository(ABC):
         pass
     
     @abstractmethod
+    def flush(self) -> list[events.Event]:
+        pass
+    
+    @abstractmethod
     def create_entity(
         self, entity: Entity
-    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+    ) -> Entity:
         pass
     
     @abstractmethod
     def create_asset(
         self, asset: Asset
-    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+    ) -> Entity:
         pass
     
     @abstractmethod
@@ -51,19 +55,19 @@ class Repository(ABC):
     @abstractmethod
     def delete_entity(
         self, id: str
-    ) -> events.EntityDeleted:
+    ) -> Entity:
         pass
 
     @abstractmethod
     def create_relation(
         self, relation: Relation, from_entity: Entity, to_entity: Entity
-    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+    ) -> Edge:
         pass
     
     @abstractmethod
     def create_edge(
         self, edge: Edge
-    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+    ) -> Edge:
         pass
     
     @abstractmethod
@@ -87,19 +91,19 @@ class Repository(ABC):
     @abstractmethod
     def delete_edge(
         self, id: str
-    ) -> events.EdgeDeleted:
+    ) -> Edge:
         pass
     
     @abstractmethod
     def create_entity_tag(
         self, tag: EntityTag
-    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+    ) -> EntityTag:
         pass
     
     @abstractmethod
     def create_entity_property(
         self, entity: Entity, prop: Property
-    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+    ) -> EntityTag:
         pass
     
     @abstractmethod
@@ -123,19 +127,19 @@ class Repository(ABC):
     @abstractmethod
     def delete_entity_tag(
         self, id: str
-    ) -> events.EntityTagDeleted:
+    ) -> EntityTag:
         pass
     
     @abstractmethod
     def create_edge_tag(
         self, tag: EdgeTag
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+    ) -> EdgeTag:
         pass
     
     @abstractmethod
     def create_edge_property(
         self, edge: Edge, prop: Property
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+    ) -> EdgeTag:
         pass
     
     @abstractmethod
@@ -159,10 +163,9 @@ class Repository(ABC):
     @abstractmethod
     def delete_edge_tag(
         self, id: str
-    ) -> events.EdgeTagDeleted:
+    ) -> EdgeTag:
         pass
 
     @abstractmethod
     def close(self) -> None:
         pass
-

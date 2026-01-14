@@ -79,7 +79,7 @@ def _find_existing_edge(self, edge: Edge) -> Optional[Edge]:
     return None
 
     
-def create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+def create_edge(self, edge: Edge) -> Edge:
 
     if self.enforce_taxonomy and not valid_relationship(
             edge.from_entity.asset.asset_type,
@@ -91,7 +91,6 @@ def create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated | 
             edge.from_entity.asset.asset_type,
             edge.relation.label,
             edge.to_entity.asset.asset_type))
-
 
     new_edge: Optional[Edge] = None
     old_edge: Optional[Edge] = _find_existing_edge(self, edge)
@@ -122,11 +121,44 @@ def create_edge(self, edge: Edge) -> events.EdgeInserted | events.EdgeUpdated | 
         if record is None:
             raise Exception("no records returned from the query")
 
-        return events.EdgeInserted(edge=new_edge)
+        self._emit(events.EdgeInserted(edge=new_edge))
+        return new_edge
 
-    return events.EdgeUntouched(edge=old_edge)
+    # If the edge already exists and has new data, update it
+    if edge.relation.is_fresher_than(old_edge.relation):
+        new_edge = Edge(
+            id          = old_edge.id,
+            from_entity = old_edge.from_entity,
+            to_entity   = old_edge.to_entity,
+            relation    = old_edge.relation.override_with(edge.relation),
+            created_at  = old_edge.created_at,
+            updated_at  = datetime.now()
+        )
 
-def create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> events.EdgeInserted | events.EdgeUpdated:
+        try:
+            record = self.db.execute_query(
+                f"""
+                MATCH (from:Entity {{entity_id: "{new_edge.from_entity.id}"}})
+                MATCH (to:Entity {{entity_id: "{new_edge.to_entity.id}"}})
+                MATCH (from) -[r:{new_edge.label}]-> (to) 
+                SET r = $props
+                RETURN r, from, to
+                """,
+                {"props": new_edge.to_dict()},
+                result_transformer_=Result.single)
+        except Exception as e:
+            raise e
+
+        if record is None:
+            raise Exception("no records returned from the query")
+
+        self._emit(events.EdgeUpdated(old_edge=old_edge, edge=new_edge))
+        return new_edge
+
+    self._emit(events.EdgeUntouched(edge=old_edge))
+    return old_edge
+
+def create_relation(self, relation: Relation, from_entity: Entity, to_entity: Entity) -> Edge:
     return self.create_edge(
         Edge(relation, from_entity, to_entity))
 
@@ -178,7 +210,7 @@ def incoming_edges(self, entity: Entity, since: Optional[datetime] = None, *args
         results.append(edge)
 
     if len(results) == 0:
-        raise Exception("no edge found")
+        return []
 
     return results
 
@@ -227,7 +259,7 @@ def outgoing_edges(self, entity: Entity, since: Optional[datetime] = None, *args
         results.append(edge)
 
     if not results:
-        raise Exception("no edge found")
+        return []
 
     return results
 
@@ -272,7 +304,7 @@ def find_edge_by_id(self, id: str) -> Edge:
 
     return edge
 
-def delete_edge(self, id: str) -> events.EdgeDeleted:
+def delete_edge(self, id: str) -> Edge:
     edge = self.find_edge_by_id(id)
 
     try:
@@ -282,4 +314,5 @@ def delete_edge(self, id: str) -> events.EdgeDeleted:
     except Exception as e:
         raise e
 
-    return events.EdgeDeleted(old_edge=edge)
+    self._emit(events.EdgeDeleted(old_edge=edge))
+    return edge

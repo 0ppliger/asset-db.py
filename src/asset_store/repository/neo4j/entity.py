@@ -70,7 +70,7 @@ def _find_existing_entity(self, entity: Entity) -> Optional[Entity]:
             return findings[0]
     return None
 
-def create_entity(self, entity: Entity) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+def create_entity(self, entity: Entity) -> Entity:
     new_entity: Optional[Entity] = None
     old_entity: Optional[Entity] = _find_existing_entity(self, entity)
 
@@ -94,7 +94,8 @@ def create_entity(self, entity: Entity) -> events.EntityInserted | events.Entity
         if record is None:
             raise Exception("no records returned from the query")
 
-        return events.EntityInserted(entity=new_entity)
+        self._emit(events.EntityInserted(entity=new_entity))
+        return new_entity
 
     # If the entity already exists and has new data, update it
     if entity.asset.is_fresher_than(old_entity.asset):
@@ -116,12 +117,14 @@ def create_entity(self, entity: Entity) -> events.EntityInserted | events.Entity
         if record is None:
             raise Exception("no records returned from the query")
 
-        return events.EntityUpdated(old_entity=old_entity, entity=new_entity)
+        self._emit(events.EntityUpdated(old_entity=old_entity, entity=new_entity))
+        return new_entity
 
     # If the entity already exists and has no new data, return the existing entity
-    return events.EntityUntouched(entity=old_entity)
+    self._emit(events.EntityUntouched(entity=old_entity))
+    return old_entity
 
-def create_asset(self, asset: Asset) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+def create_asset(self, asset: Asset) -> Entity:
     return self.create_entity(
         Entity(asset=asset))
 
@@ -159,9 +162,6 @@ def find_entities_by_content(self, asset: Asset, since: Optional[datetime]) -> l
     except Exception as e:
         raise e
 
-    if len(records) == 0:
-        return entities
-
     for rec in records:
         node = rec.get("a")
         if node is None:
@@ -181,9 +181,6 @@ def find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) -> 
     except Exception as e:
         raise e
 
-    if len(records) == 0:
-        raise Exception("no entities of the specified type")
-
     results: list[Entity] = []
     for record in records:
         node = record.get("a")
@@ -198,11 +195,11 @@ def find_entities_by_type(self, atype: AssetType, since: Optional[datetime]) -> 
         results.append(entity)
 
     if len(results) == 0:
-        raise Exception("no entities of the specified type")
+        return []
 
     return results
 
-def delete_entity(self, id: str) -> events.EntityDeleted:
+def delete_entity(self, id: str) -> Entity:
     entity = self.find_entity_by_id(id)
 
     try:
@@ -212,4 +209,5 @@ def delete_entity(self, id: str) -> events.EntityDeleted:
     except Exception as e:
         raise e
 
-    return events.EntityDeleted(old_entity=entity)
+    self._emit(events.EntityDeleted(old_entity=entity))
+    return entity

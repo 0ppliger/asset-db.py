@@ -54,6 +54,7 @@ class NeoRepository(Repository):
     ):
         self._uri = uri
         self._auth = auth
+        self._events_buffer = []
         self.enforce_taxonomy = enforce_taxonomy
     
     def __enter__(self):
@@ -63,6 +64,9 @@ class NeoRepository(Repository):
         self.db = _db
         return self
 
+    def _emit(self, event: events.Event) -> None:
+        self._events_buffer.append(event)
+
     def __exit__(self, exc_type, exc, tb):
         self.close()
 
@@ -71,17 +75,22 @@ class NeoRepository(Repository):
 
     def close(self) -> None:
         self.db.close()
-        
+
+    def flush(self) -> list[events.Event]:
+        events = self._events_buffer
+        self._events_buffer = []
+        return events
+
     def create_entity(
             self,
             entity: Entity
-    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+    ) -> Entity:
         return create_entity(self, entity)
     
     def create_asset(
             self,
             asset: Asset
-    ) -> events.EntityInserted | events.EntityUpdated | events.EntityUntouched:
+    ) -> Entity:
         return create_asset(self, asset)
     
     def find_entity_by_id(
@@ -107,13 +116,13 @@ class NeoRepository(Repository):
     def delete_entity(
             self,
             id: str
-    ) -> events.EntityDeleted:
+    ) -> Entity:
         return delete_entity(self, id)
 
     def create_edge(
             self,
             edge: Edge
-    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+    ) -> Edge:
         return create_edge(self, edge)
 
     def create_relation(
@@ -121,7 +130,7 @@ class NeoRepository(Repository):
             relation: Relation,
             from_entity: Entity,
             to_entity: Entity
-    ) -> events.EdgeInserted | events.EdgeUpdated | events.EdgeUntouched:
+    ) -> Edge:
         return create_relation(self, relation, from_entity, to_entity)
 
     def incoming_edges(
@@ -149,20 +158,20 @@ class NeoRepository(Repository):
     def delete_edge(
             self,
             id: str
-    ) -> events.EdgeDeleted:
+    ) -> Edge:
         return delete_edge(self, id)
     
     def create_entity_tag(
             self,
             tag: EntityTag
-    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+    ) -> EntityTag:
         return create_entity_tag(self, tag)
 
     def create_entity_property(
             self,
             entity: Entity,
             prop: Property
-    ) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+    ) -> EntityTag:
         return create_entity_property(self, entity, prop)
 
     def find_entity_tag_by_id(
@@ -182,7 +191,7 @@ class NeoRepository(Repository):
     def delete_entity_tag(
             self,
             id: str
-    ) -> events.EntityTagDeleted:
+    ) -> EntityTag:
         return delete_entity_tag(self, id)
     
     def find_entity_tags_by_content(
@@ -195,14 +204,14 @@ class NeoRepository(Repository):
     def create_edge_tag(
             self,
             tag: EdgeTag
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+    ) -> EdgeTag:
         return create_edge_tag(self, tag)
 
     def create_edge_property(
             self,
             edge: Edge,
             prop: Property
-    ) -> events.EdgeTagInserted | events.EdgeTagUpdated | events.EdgeTagUntouched:
+    ) -> EdgeTag:
         return create_edge_property(self, edge, prop)
 
     def find_edge_tag_by_id(
@@ -229,5 +238,5 @@ class NeoRepository(Repository):
     def delete_edge_tag(
             self,
             id: str
-    ) -> events.EdgeTagDeleted:
+    ) -> EdgeTag:
         return delete_edge_tag(self, id)

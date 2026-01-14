@@ -82,7 +82,7 @@ def _find_existing_entity_tag(self, tag: EntityTag) -> Optional[EntityTag]:
     return None
 
 
-def create_entity_tag(self, tag: EntityTag) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+def create_entity_tag(self, tag: EntityTag) -> EntityTag:
 
     if tag.prop is None:
         raise Exception("malformed entity tag")
@@ -113,7 +113,8 @@ def create_entity_tag(self, tag: EntityTag) -> events.EntityTagInserted | events
         if record is None:
             raise Exception("no records returned from the query")
 
-        return events.EntityTagInserted(tag=new_tag)
+        self._emit(events.EntityTagInserted(tag=new_tag))
+        return new_tag
     
     # If the entity tag already exists and has new data, update it
     if tag.prop.is_fresher_than(old_tag.prop):
@@ -136,14 +137,15 @@ def create_entity_tag(self, tag: EntityTag) -> events.EntityTagInserted | events
         except Exception as e:
             raise e
 
-
-        return events.EntityTagUpdated(old_tag=old_tag, tag=new_tag)
+        self._emit(events.EntityTagUpdated(old_tag=old_tag, tag=new_tag))
+        return new_tag
 
     # If the entity already exists and has no new data, return the existing entity
-    return events.EntityTagUntouched(tag=old_tag)
+    self._emit(events.EntityTagUntouched(tag=old_tag))
+    return old_tag
 
 
-def create_entity_property(self, entity: Entity, prop: Property) -> events.EntityTagInserted | events.EntityTagUpdated | events.EntityTagUntouched:
+def create_entity_property(self, entity: Entity, prop: Property) -> EntityTag:
     return self.create_entity_tag(EntityTag(entity=entity, prop=prop))
 
 def find_entity_tags_by_content(self, prop: Property, since: Optional[datetime] = None) -> list[EntityTag]:
@@ -161,9 +163,6 @@ def find_entity_tags_by_content(self, prop: Property, since: Optional[datetime] 
         except Exception as e:
             raise e
 
-        if len(records) == 0:
-            raise Exception("no entity tags found")
-
         for record in records:
             node = record.get("p")
             if node is None:
@@ -174,7 +173,7 @@ def find_entity_tags_by_content(self, prop: Property, since: Optional[datetime] 
                 tags.append(tag)
 
         if len(tags) == 0:
-            raise Exception("no entity tag found")
+            return []
 
         return tags
         
@@ -236,8 +235,8 @@ def find_entity_tags(self, entity: Entity, since: Optional[datetime] = None, *ar
 
     return tags
 
-def delete_entity_tag(self, id: str) -> events.EntityTagDeleted:
-    entity = self.find_entity_tag_by_id(id)
+def delete_entity_tag(self, id: str) -> EntityTag:
+    tag = self.find_entity_tag_by_id(id)
 
     try:
         self.db.execute_query(
@@ -246,4 +245,5 @@ def delete_entity_tag(self, id: str) -> events.EntityTagDeleted:
     except Exception as e:
         raise e
 
-    return events.EntityTagDeleted(old_tag=entity)
+    self._emit(events.EntityTagDeleted(old_tag=tag))
+    return tag
