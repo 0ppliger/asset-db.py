@@ -12,6 +12,7 @@ from asset_store.types.edge import Edge
 from asset_store.types.edge_tag import EdgeTag
 from datetime import datetime
 
+
 class Repository(ABC):
     
     @abstractmethod
